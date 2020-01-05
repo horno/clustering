@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 from math import sqrt
 import dendrogram
+import random
+import sys
 
-debug = 0
 
 class bicluster:
     def __init__(self, vec, left=None, right=None, distance=0.0, id=None):
@@ -49,7 +50,6 @@ def pearson(v1, v2):
     num = pSum-(sum1*sum2/len(v1))
     den = sqrt((sum1Sq-pow(sum1,2)/len(v1)) * (sum2Sq-pow(sum2,2)/len(v1)))
     if den==0: return 0
-
     return 1.0-num/den
 
 def hcluster(rows, distance=pearson):
@@ -107,21 +107,76 @@ def printclust(clust, labels=None, n=0):
 def rotatematrix(data):
     return [list(a) for a in list(zip(*data[::-1]))]
 
-def debugger(message):
-    if(debug == 1): print(message)
-
 def dend(data, label = None, filename = None):
-    debugger("Clustering the data")
     clust = hcluster(data)
-    debugger("Drawing the dendrogram")
     dendrogram.drawdendrogram(clust, labels = label, jpeg="imageclust.jpg")
-    debugger("Finnished")
+
+def kcluster(rows, distance = pearson, k=4):
+    # Determine de min and max values for each point
+    ranges = [(min([row[i] for row in rows]),max([row[i] for row in rows]))
+            for i in range(len(rows[0]))]
+    # Create k randomly placed centroids
+    clusters = [[random.random()*(ranges[i][1]-ranges[i][0])+ranges[i][0]
+        for i in range(len(rows[0]))] for j in range(k)]
+    lastmatches = None
+    for _ in range(100):
+        #print("Iteration " + str(t))
+        bestmatches = [[] for _ in range(k)]
+        # Find wich centroid is closest for each row
+        for j in range(len(rows)):
+            row = rows[j]
+            bestmatch = 0
+            for i in range(k):
+                d = distance(clusters[i], row)
+                if d < distance(clusters[bestmatch], row): bestmatch = i
+            bestmatches[bestmatch].append(j)
+        
+        # If the results are the same as last time, done
+        if bestmatches == lastmatches: break
+        lastmatches = bestmatches
+        
+        # Move the centroids to de average of their members
+        for i in range(k):
+            avgs=[0.0]*len(rows[0])
+            if(len(bestmatches[i])>0):
+                for rowid in bestmatches[i]:
+                    for m in range(len(rows[rowid])):
+                        avgs[m] += rows[rowid][m]
+
+                for j in range(len(avgs)):
+                    avgs[j] /= len(bestmatches[i])
+                clusters[i] = avgs
+    
+    total_sum = calc_total_dist(clusters, bestmatches, rows, euclidean)
+    return total_sum, bestmatches
+
+def calc_total_dist(clusters, bestmatches, rows, distance = pearson):  
+    total_sum = 0 
+    for i in range(len(clusters)):
+        for rowID in bestmatches[i]:
+            d = distance(clusters[i], rows[rowID])
+            total_sum += d**2
+    return total_sum
+
+def search_cluster(iterations):
+    best_dist, best_clust = kcluster(data,k=10)
+    for _ in range(iterations-1):
+        total_dist, kclust = kcluster(data, k = 10)
+        if total_dist < best_dist:
+            best_dist = total_dist
+            best_clust = kclust
+    return best_dist, best_clust
 
 if __name__=='__main__':
     blognames, words, data = readfile("blogdata.txt")
-    dend(rotatematrix(data), words)
-
-
+    if len(sys.argv) < 2:
+        best_dist, best_clust = search_cluster(10)
+    else:
+        best_dist, best_clust = search_cluster(int(sys.argv[1]))
+    print("Best distance: " + str(best_dist))
+    print("Best clusters: ")
+    print(best_clust)
+    #print("".join(best_clust))
 
 
 
