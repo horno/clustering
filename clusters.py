@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 from math import sqrt
+import dendrogram
+
+debug = 0
 
 class bicluster:
-    def __init__(self, vec, left=None, right=None, dist=0.0, id=None):
+    def __init__(self, vec, left=None, right=None, distance=0.0, id=None):
         self.vec = vec
         self.left = left
         self.right = right
-        self.dist = dist
+        self.distance = distance
         self.id = id
 
 def readfile(filename):
@@ -72,23 +75,51 @@ def hcluster(rows, distance=pearson):
                     lowestpair = (i,j)
         
         # calculate the average of the two clusters
-        mergevec = [ (clust[lowestpair[0]].vec+clust[lowestpair[1]].vec)/2.0  for i in range(len(clust[0].vec))]
+        mergevec = [ (clust[lowestpair[0]].vec[i] + clust[lowestpair[1]].vec[i])/2.0
+                for i in range(len(clust[0].vec))]
         # create new cluster
-        newcluster = bicluster(mergevec, left=clust[lowestpair[0]], right=clust[lowestpair[1]] )
+        newcluster = bicluster(mergevec, left=clust[lowestpair[0]], 
+                right=clust[lowestpair[1]], distance = closest, id = currentclustid)
+        currentclustid-=1
+        del clust[lowestpair[1]]
+        del clust[lowestpair[0]]
+        clust.append(newcluster)
 
+    return clust[0]
+
+def printclust(clust, labels=None, n=0):
+    # indent to make a hierarchy layout
+    for _ in range(n): print(" ", end='')
+    if clust.id < 0:
+        # negative id means that this is branch
+        print("-")
+    else:
+        # positive id means that this is endpoint
+        if labels == None: print(clust.id, end='')
+        else: print(labels[clust.id], end='')
+        
+    # now print the left and right branches
+    if clust.left != None:
+        printclust(clust.left, labels=labels, n=n+1)
+    if clust.right != None:
+        printclust(clust.right, labels=labels, n=n+1)
+
+def rotatematrix(data):
+    return [list(a) for a in list(zip(*data[::-1]))]
+
+def debugger(message):
+    if(debug == 1): print(message)
+
+def dend(data, label = None, filename = None):
+    debugger("Clustering the data")
+    clust = hcluster(data)
+    debugger("Drawing the dendrogram")
+    dendrogram.drawdendrogram(clust, labels = label, jpeg="imageclust.jpg")
+    debugger("Finnished")
 
 if __name__=='__main__':
-    rownames, colnames, data = readfile("blogdata.txt")
-    hcluster(data)
-
-
-
-
-
-
-
-
-
+    blognames, words, data = readfile("blogdata.txt")
+    dend(rotatematrix(data), words)
 
 
 
