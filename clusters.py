@@ -176,7 +176,6 @@ if __name__=='__main__':
     print("Best distance: " + str(best_dist))
     print("Best clusters: ")
     print(best_clust)
-    #print("".join(best_clust))
 
 
 
